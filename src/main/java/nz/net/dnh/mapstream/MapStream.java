@@ -1,10 +1,13 @@
 package nz.net.dnh.mapstream;
 
 import static java.util.function.Function.identity;
+import static nz.net.dnh.mapstream.MapStreamHelpers.distinctPredicate;
 import static nz.net.dnh.mapstream.MapStreamHelpers.entryConsumer;
 import static nz.net.dnh.mapstream.MapStreamHelpers.entryFunction;
 import static nz.net.dnh.mapstream.MapStreamHelpers.entryPredicate;
+import static nz.net.dnh.mapstream.MapStreamHelpers.keyBiFunction;
 import static nz.net.dnh.mapstream.MapStreamHelpers.mappedPredicate;
+import static nz.net.dnh.mapstream.MapStreamHelpers.valueBiFunction;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Comparator;
@@ -19,6 +22,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
+//TODO javadoc
+//TODO extend BaseStream for:
+//- parallel/sequential access
+//- closeable
+//- iterator/spliterator
 public interface MapStream<K, V> {
 	public static <K, V> MapStream<K, V> of(final Map<K, V> map) {
 		return map.entrySet()::stream;
@@ -55,7 +63,7 @@ public interface MapStream<K, V> {
 	}
 
 	default <K2> MapStream<K2, V> mapKeys(final BiFunction<? super K, ? super V, ? extends K2> mapper) {
-		return map(mapper, (k, v) -> v);
+		return map(mapper, valueBiFunction());
 	}
 
 	default <V2> MapStream<K, V2> mapValues(final Function<? super V, ? extends V2> mapper) {
@@ -63,10 +71,9 @@ public interface MapStream<K, V> {
 	}
 
 	default <V2> MapStream<K, V2> mapValues(final BiFunction<? super K, ? super V, ? extends V2> mapper) {
-		return map((k, v) -> k, mapper);
+		return map(keyBiFunction(), mapper);
 	}
 
-	// TODO test below this line
 	default <K2, V2> MapStream<K2, V2> map(final Function<? super K, ? extends K2> keyMapper,
 			final Function<? super V, ? extends V2> valueMapper) {
 		return map((k, v) -> keyMapper.apply(k), (k, v) -> valueMapper.apply(v));
@@ -83,13 +90,11 @@ public interface MapStream<K, V> {
 	}
 
 	default MapStream<K, V> distinctKeys() {
-		// TODO do I care?
-		return null;
+		return filterKeys(distinctPredicate());
 	}
 
 	default MapStream<K, V> distinctValues() {
-		// TODO do I care?
-		return null;
+		return filterValues(distinctPredicate());
 	}
 
 	@SuppressWarnings({ "unchecked" })
