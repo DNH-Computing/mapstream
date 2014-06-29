@@ -1,4 +1,5 @@
 package nz.net.dnh.mapstream;
+
 import static java.util.stream.Collectors.toList;
 import static nz.net.dnh.mapstream.EntryCollectors.toMap;
 import static org.hamcrest.Matchers.contains;
@@ -9,9 +10,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.AbstractMap.SimpleEntry;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,8 +25,13 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
+
+import nz.net.dnh.mapstream.MapStream.CloseableMapStream;
 
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
@@ -64,6 +72,19 @@ public class MapStreamTest {
 	public void entryStreamReturnsStreamOfMapEntries() {
 		assertThat(MapStream.of(this.mockMap), hasEntryStream(theInstance(this.mockEntryStream)));
 	}
+
+	@Test
+	public void mapStreamOfStreamWithKeyAndValueFunctions() {
+		assertThat(MapStream.of(Stream.of(1, 2, 3, 4), String::valueOf, Function.identity()).collect(toList()),
+				contains(entries("1", 1, "2", 2, "3", 3, "4", 4)));
+	}
+
+	@Test
+	public void mapStreamOfStreamWithEntryFunction() {
+		assertThat(MapStream.of(Stream.of(1, 2, 3, 4), i -> new SimpleImmutableEntry<>(i.toString(), i)).collect(toList()),
+				contains(entries("1", 1, "2", 2, "3", 3, "4", 4)));
+	}
+
 	@Test
 	public void keyStreamReturnsStreamOfMapKeys() {
 		assertThat(MapStream.of(MAP).keyStream().collect(toList()), is(listOf(MAP.keySet())));
@@ -301,6 +322,71 @@ public class MapStreamTest {
 	@Test
 	public void noneMatchReturnsFalseIfAnyItemsMatch() {
 		assertFalse(MapStream.of(MAP).noneMatch((k, v) -> k.equals("key1")));
+	}
+
+	@Test
+	public void parallelReturnsParallelMapStream() {
+		assertTrue(MapStream.of(MAP).parallel().isParallel());
+		assertTrue(MapStream.of(MAP).sequential().parallel().isParallel());
+	}
+
+	@Test
+	public void sequentialReturnsNonParallelMapStream() {
+		assertFalse(MapStream.of(MAP).sequential().isParallel());
+		assertFalse(MapStream.of(MAP).parallel().sequential().isParallel());
+	}
+
+	@Test
+	public void onCloseCalledOnClose() {
+		final AtomicInteger closeCalled = new AtomicInteger();
+		final MapStream<String, Integer> stream = MapStream.of(MAP).onClose(closeCalled::incrementAndGet);
+		assertEquals(0, closeCalled.get());
+		stream.close();
+		assertEquals(1, closeCalled.get());
+	}
+
+	@Test
+	public void autoCloseableMapStreamTryWithResources() {
+		final AtomicInteger closeCalled = new AtomicInteger();
+		try (CloseableMapStream<String, Integer> mapStream = MapStream.of(MAP).onClose(closeCalled::incrementAndGet).autoCloseable()) {
+			assertEquals(0, closeCalled.get());
+		}
+		assertEquals(1, closeCalled.get());
+	}
+
+	@Test
+	public void autoCloseableMapStreamTryWithResourcesDoesNotCallOnCloseHandlersAddedAfterAutoCloseableCall() {
+		final AtomicInteger closeCalled = new AtomicInteger();
+		try (CloseableMapStream<String, Integer> mapStream = MapStream.of(MAP).autoCloseable()) {
+			mapStream.onClose(closeCalled::incrementAndGet);
+			assertEquals(0, closeCalled.get());
+		}
+		assertEquals(0, closeCalled.get());
+	}
+
+	@Test
+	public void unorderedReturnsMapStreamWithUnorderedEntryStream() {
+		when(this.mockEntryStream.unordered()).thenReturn(this.mockEntryStream);
+
+		assertThat(MapStream.of(this.mockMap).unordered(), hasEntryStream(theInstance(this.mockEntryStream)));
+
+		verify(this.mockEntryStream).unordered();
+	}
+
+	@Test
+	public void iteratorReturnsEntrySetIterator() {
+		assertThat(Lists.newArrayList(MapStream.of(MAP).iterator()), contains(entries("key1", 1, "key2", 2, "key3", 3)));
+	}
+
+	@Test
+	public void spliteratorReturnsEntrySetSpliterator() {
+		assertThat(spliteratorToList(MapStream.of(MAP).spliterator()), contains(entries("key1", 1, "key2", 2, "key3", 3)));
+	}
+
+	private static <T> List<T> spliteratorToList(final Spliterator<T> spliterator) {
+		final List<T> list = new ArrayList<>();
+		spliterator.forEachRemaining(list::add);
+		return list;
 	}
 
 	private static <K, V> Matcher<Map<K, V>> emptyMap() {

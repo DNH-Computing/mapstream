@@ -11,8 +11,10 @@ import static nz.net.dnh.mapstream.MapStreamHelpers.valueBiFunction;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Spliterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -20,13 +22,10 @@ import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.BaseStream;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
-//TODO extend BaseStream for:
-//- parallel/sequential access
-//- closeable
-//- iterator/spliterator
 /**
  * An equivalent of {@link Stream} that operates on key-value pairs, e.g. from a {@link Map}.
  * <p>
@@ -38,6 +37,7 @@ import java.util.stream.Stream;
  * 
  * @see MultimapStream Obtaining a {@link MapStream} from a multimap
  */
+@FunctionalInterface
 public interface MapStream<K, V> {
 	/** Return a new {@link MapStream} based on the entries from the given map */
 	public static <K, V> MapStream<K, V> of(final Map<K, V> map) {
@@ -365,6 +365,67 @@ public interface MapStream<K, V> {
 		return () -> entryStream().skip(n);
 	}
 
+	/**
+	 * Returns whether this MapStream would execute terminal operations in parallel.
+	 * 
+	 * @see BaseStream#isParallel()
+	 */
+	default boolean isParallel() {
+		return entryStream().isParallel();
+	}
+
+	/**
+	 * Returns an equivalent MapStream that is sequential.
+	 *
+	 * @return a sequential stream
+	 * @see BaseStream#sequential()
+	 * @see #parallel()
+	 */
+	default MapStream<K, V> sequential() {
+		return entryStream()::sequential;
+	}
+
+	/**
+	 * Returns an equivalent MapStream that is parallel.
+	 *
+	 * @return a parallel stream
+	 * @see BaseStream#parallel()
+	 * @see #sequential()
+	 */
+	default MapStream<K, V> parallel() {
+		return entryStream()::parallel;
+	}
+
+	/**
+	 * Returns an equivalent MapStream that is unordered.
+	 * 
+	 * @see BaseStream#unordered()
+	 */
+	default MapStream<K, V> unordered() {
+		return entryStream()::unordered;
+	}
+
+	/**
+	 * Returns an equivalent stream with an additional close handler. Close handlers are run when the {@link #close()} method is called on
+	 * the stream, and are executed in the order they were added.
+	 *
+	 * @param closeHandler
+	 *            A task to execute when the stream is closed
+	 * @see BaseStream#onClose(Runnable)
+	 */
+	default MapStream<K, V> onClose(final Runnable closeHandler) {
+		return () -> entryStream().onClose(closeHandler);
+	}
+
+	/**
+	 * Closes this stream, causing all close handlers for this stream pipeline to be called.
+	 *
+	 * @see BaseStream#close()
+	 */
+	default void close() {
+		entryStream().close();
+	}
+
 	// Terminal operations
 
 	/**
@@ -460,8 +521,45 @@ public interface MapStream<K, V> {
 	 * @see MultimapStream#toMultimap()
 	 * @see Stream#collect(Collector)
 	 */
-	// Convenience method for the most common collect operation - for others, call entryStream().collect or entryStream().reduce
 	default <R, A> R collect(final Collector<? super Entry<K, V>, A, R> collector) {
 		return entryStream().collect(collector);
+	}
+
+	/**
+	 * Returns an iterator for the elements of this stream.
+	 * <p>
+	 * This is a terminal operation.
+	 */
+	default Iterator<Entry<K, V>> iterator() {
+		return entryStream().iterator();
+	}
+
+	/**
+	 * Returns a spliterator for the elements of this stream.
+	 * <p>
+	 * This is a terminal operation.
+	 */
+	default Spliterator<Entry<K, V>> spliterator() {
+		return entryStream().spliterator();
+	}
+
+	/** Subclass of MapStream for use in try-with-resources blocks */
+	interface CloseableMapStream<K, V> extends MapStream<K, V>, AutoCloseable {
+		@Override
+		default void close() {
+			MapStream.super.close();
+		}
+	}
+
+	/**
+	 * Return an equivalent stream that implements {@link AutoCloseable}, for use in try-with-resources blocks
+	 * <p>
+	 * The main {@link MapStream} class doesn't extend {@link AutoCloseable} to avoid superfluous "resource leak" warnings.
+	 * <p>
+	 * NB: {@link #onClose(Runnable) onClose} handlers added after this method call will not be called when close is called. Ensure all
+	 * handlers are added before this method is called
+	 */
+	default CloseableMapStream<K, V> autoCloseable() {
+		return this::entryStream;
 	}
 }
