@@ -326,7 +326,7 @@ public class MapStreamTest {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static <K, V> Entry<K, V>[] entries(final K key1, final V value1, final Object... others) {
+	public static <K, V> Entry<K, V>[] entries(final K key1, final V value1, final Object... others) {
 		final Entry<K, V>[] entries = new Entry[others.length / 2 + 1];
 		entries[0] = new SimpleEntry<>(key1, value1);
 		for (int i = 0; i < others.length / 2; i++) {
