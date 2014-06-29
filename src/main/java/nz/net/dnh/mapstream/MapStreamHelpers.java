@@ -11,6 +11,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/** Internal helpers for {@link MapStream} */
 class MapStreamHelpers {
 	/** Object used in place of {@code null} in a ConcurrentHashMap */
 	private static final Object NULL = new Object();

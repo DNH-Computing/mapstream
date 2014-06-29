@@ -28,8 +28,41 @@ import java.util.stream.Stream;
 //- closeable
 //- iterator/spliterator
 public interface MapStream<K, V> {
+	/** Return a new {@link MapStream} based on the entries from the given map */
 	public static <K, V> MapStream<K, V> of(final Map<K, V> map) {
 		return map.entrySet()::stream;
+	}
+
+	/**
+	 * Return a new {@link MapStream} based on the elements from the given stream. Entries in the {@link MapStream} are the result of
+	 * applying the given mapping functions to elements from the given stream.
+	 * <p>
+	 * The given stream should not be used after creating a {@link MapStream} from it.
+	 * 
+	 * @param stream
+	 *            The stream to transform into a {@link MapStream}
+	 * @param keyFunction
+	 *            A mapping function to produce keys
+	 * @param valueFunction
+	 *            A mapping function to produce values
+	 */
+	public static <T, K, V> MapStream<K, V> of(final Stream<T> stream, final Function<T, K> keyFunction, final Function<T, V> valueFunction) {
+		return of(stream, v -> new SimpleImmutableEntry<>(keyFunction.apply(v), valueFunction.apply(v)));
+	}
+
+	/**
+	 * Return a new {@link MapStream} based on the elements from the given stream. Entries in the {@link MapStream} are the result of
+	 * applying the given mapping function to elements from the given stream.
+	 * <p>
+	 * The given stream should not be used after creating a {@link MapStream} from it.
+	 * 
+	 * @param stream
+	 *            The stream to transform into a {@link MapStream}
+	 * @param entryFunction
+	 *            A mapping function to produce entries
+	 */
+	public static <T, K, V> MapStream<K, V> of(final Stream<T> stream, final Function<T, Entry<K, V>> entryFunction) {
+		return () -> stream.map(entryFunction);
 	}
 
 	Stream<Entry<K, V>> entryStream();
