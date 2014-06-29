@@ -282,7 +282,7 @@ public interface MapStream<K, V> {
 	 * @see Stream#sorted(Comparator)
 	 */
 	default MapStream<K, V> sortedKeys(final Comparator<? super K> comparator) {
-		return () -> entryStream().sorted(Comparator.comparing(Entry::getKey, comparator));
+		return () -> entryStream().sorted(Entry.comparingByKey(comparator));
 	}
 
 	/**
@@ -304,7 +304,7 @@ public interface MapStream<K, V> {
 	 * @see Stream#sorted(Comparator)
 	 */
 	default MapStream<K, V> sortedValues(final Comparator<? super V> comparator) {
-		return () -> entryStream().sorted(Comparator.comparing(Entry::getValue, comparator));
+		return () -> entryStream().sorted(Entry.comparingByValue(comparator));
 	}
 
 	/**
