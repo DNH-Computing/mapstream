@@ -9,7 +9,7 @@ import static nz.net.dnh.mapstream.MapStreamHelpers.keyBiFunction;
 import static nz.net.dnh.mapstream.MapStreamHelpers.mappedPredicate;
 import static nz.net.dnh.mapstream.MapStreamHelpers.valueBiFunction;
 
-import java.util.AbstractMap.SimpleEntry;
+import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -82,7 +82,7 @@ public interface MapStream<K, V> {
 	default <K2, V2> MapStream<K2, V2> map(final BiFunction<? super K, ? super V, ? extends K2> keyMapper,
 			final BiFunction<? super K, ? super V, ? extends V2> valueMapper) {
 		return () -> entryStream().map(
-				e -> new SimpleEntry<>(keyMapper.apply(e.getKey(), e.getValue()), valueMapper.apply(e.getKey(), e.getValue())));
+				e -> new SimpleImmutableEntry<>(keyMapper.apply(e.getKey(), e.getValue()), valueMapper.apply(e.getKey(), e.getValue())));
 	}
 
 	default MapStream<K, V> distinct() {
