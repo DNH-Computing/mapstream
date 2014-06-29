@@ -45,6 +45,7 @@ class MapStreamHelpers {
 	 *         it has
 	 */
 	public static <T> Predicate<T> distinctPredicate() {
+		// TODO use a HashSet if the stream is non-parallel
 		final Set<Object> seenKeys = Collections.newSetFromMap(new ConcurrentHashMap<>());
 		return o -> seenKeys.add(o == null ? NULL : o);
 	}
